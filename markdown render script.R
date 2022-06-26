@@ -17,7 +17,7 @@
 
 # input rmarkdown file
 # ----------------------------------------------- 
-input_rmd_file <- "project1 v6.Rmd"
+input <- here("project1 v8.Rmd")
 
 
 
@@ -27,9 +27,9 @@ library(here)
 library(rmarkdown)
 library(knitr)
 
-file <- list.files(pattern='.Rmd')
 rmarkdown::render(
-  rmd_file, 
+  input = input, 
   output_format = github_document(html_preview = FALSE), 
-  output_dir = here("README.md")
+  output_file = "README.md" #,
+  #output_dir = here("_posts")
 )
