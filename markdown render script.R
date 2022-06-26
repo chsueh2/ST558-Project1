@@ -17,7 +17,7 @@
 
 # input rmarkdown file
 # ----------------------------------------------- 
-input_rmd_file <- ".Rmd"
+input_rmd_file <- "project1 v6.Rmd"
 
 
 
