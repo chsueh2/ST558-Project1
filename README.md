@@ -17,8 +17,9 @@ checking all the functions work as expected, I will then use it to
 obtain some movie information from OMDb web service and perform some
 basic EDA including numerical and graphical summaries on the data.
 
-Meanwhile, a blog on my GitHub pages will be post to share my experience
-and thinking when doing this project.
+Meanwhile, a [blog](https://chsueh2.github.io/ST558-1st-project.html) is
+posted on my GitHub pages to share my experience and thinking when doing
+this project.
 
 ## Setup 0: Codes to Render this Markdown Page
 
@@ -26,15 +27,14 @@ This code chunk (don’t execute) shows how to use `RMarkdown::render()`
 to render this rmarkdown document.
 
 ``` r
-library(here)
 library(rmarkdown)
 library(knitr)
 
-file <- list.files(pattern='.Rmd')
 rmarkdown::render(
-  here("some_makedown_file.Rmd"), 
+  input = input, 
   output_format = github_document(html_preview = FALSE), 
-  output_dir = here("README.md")
+  output_file = "README.md"
+  output_dir = output_dir
 )
 ```
 
@@ -44,9 +44,9 @@ It’s a good practice not to include any login confidential information
 like passwords or access keys explicitly in codes. Here, we use
 `keyring` to store the API key.
 
-At the first time to run this notebook, please uncomment the following
-line and execute it. RStudio will ask for your API key and store it.
-This needs to be done only once.
+At the first time to run this notebook, uncomment the following line and
+execute it. RStudio will ask for your API key and store it. This needs
+to be done only once.
 
 ``` r
 # Uncomment the following line to save the API key
@@ -99,24 +99,23 @@ pacman::p_load(
 ## Helper Functions
 
 The first helper function is a negated version of the built-in `%in%`
-operator. This makes our codes cleaner whene we determine if an element
-is absent.
+operator. This makes our codes cleaner and easier to read when we check
+if an element is absent.
 
 ``` r
 # not %in%
 '%notin%' <- Negate('%in%')
 ```
 
-To use the OMDb API, it’s easier to define some helper functions and
-wrap them up for a user-friendly function to perform a query. There are
+To make the OMDb API easy to use, we define some helper functions and
+wrap them up in a user-friendly function to perform a query. There are
 mainly two different API queries: (1) inquiry by a IMDb ID or a movie
 title, and (2) inquiry with a movie title search. To perform the
 queries, we define the following helper functions and an easy-to-use
 wrapper to do API calls.
 
 -   `OMDb_setup_query()`: sets up the query parameters
--   `OMDB_query()`: performs a low-level API call and check the results
-    (status)
+-   `OMDB_query()`: performs an API call and check the results (status)
 -   `OMDb_parse_movie()`: parse inquiry results of a movie by its IMDb
     ID or title (with/without other optional parameters)
 -   `OMDb_parse_search()` parse search results (with/without using other
@@ -130,9 +129,6 @@ type: series), it can be a character string like `2015-2020` or `2015-`.
 Therefore, `Year` variable will be kept as is. Instead, a new date
 variable `Year_satrt` will be created to get the beginning year of the
 span.
-
-and is slightly different from the `Year` variable returned in the
-response of a query by IMDb ID and by title. Instead of a single y
 
 ### `OMDb_setup_query()`
 
@@ -330,7 +326,7 @@ optional parameters).
 >     the API parameters can be found
 >     [here](https://www.omdbapi.com/#parameters).
 >
-> Returned Value: a data frame of the query return
+> Returned Value: a data frame of what the query returns
 
 ``` r
 # a user-friendly wrapper function to perform an API query
@@ -357,16 +353,18 @@ OMDb_movie <- function(by = c("id", "title", "search"), ...) {
 
 ## Test and Examples of Using `OMDb_movie()`
 
-In this section, we will test the warpper function and demonstrate its
+In this section, we will test the wrapper function and demonstrate its
 usages.
 
-### Simple queries by IMDb ID
+### Single-movie queries (by IMDb ID)
 
-When doing a query by an IMDb ID, the API call only return a result with
-an exact match. It can be a movie, a series or a game depending on its
-media type. Different media types have different variables in the query
-returns and the wrapper function should be able to take care of the
-differences without issues.
+When doing a single-movie query with an IMDb ID (using OMDb API’s `i`
+parameter), the API only returns an exact match if there exists, or an
+false response with an error message if not exact match. The successful
+returned data can be a movie, a TV series or a game title. Different
+media types have different variables (data columns) in the returns and
+the wrapper function should be able to take care of these differences in
+the background.
 
 ``` r
 # Superman
@@ -424,22 +422,24 @@ super3
     ## #   imdbID <chr>, Type <chr>, DVD <date>, BoxOffice <dbl>, Production <chr>, Website <chr>, Response <chr>,
     ## #   Year_start <dbl>
 
-Note: If a query return is a movie, the variable `ratings` actually is a
-dateframe with two columns: `Ratings$Source` and `RatingsValue`. In a
-tibble, this is a list column (a column that stores a dataframe in it).
-The dataframe printout might look differently depending on the rendering
-options.
+Note: If a query returns a movie, the variable `ratings` is a dateframe
+with two columns: `Ratings$Source` and `RatingsValue`. In a tibble, this
+is a list column (a column that stores a dataframe in it). The dataframe
+printout might look differently depending on the rendering options.
 
-### Queries by Title
+### Single-movie queries (by Title)
 
-When doing a query by a title, the API call returns only one result.
+When doing a query by a title (using OMDb API’s `t` parameter), the API
+call again returns one result but its behavior is different from queries
+by IMDb ID in the following ways:
 
--   If there is no exact match, it returns one movie which has a
-    partially matched title.
+-   If there is no exact match, it returns one movie with partially
+    matched title (not clearly how it decides which to pick).
 -   If there is only one exact match, it turns that movie.
--   If there are more than one exact match, it still returns just one
-    movie. Specifying an additional search parameter like `y` (year) can
-    then be used to get other matched movies.
+-   If there are more than one exact match, it still returns one movie
+    (again, not clearly how it decides which to pick). We can specify an
+    additional search parameter like `y` (year) to get other matched
+    movies.
 
 ``` r
 # Batman
@@ -535,10 +535,10 @@ print(glue(
 ### Search with a Partially Matched Value
 
 Searches using OMDb API’s `s` parameter return a list of media
-(movies/series/games) which titles are partially matched to the search
-value. Without specifying `page` parameter, our helper function will
-make multiple API calls to retrieve all of the results page by page and
-return all results in a data frame.
+(movies/series/games) as long as they have exact or partial match to the
+search value. Without specifying `page` parameter, our helper function
+will make multiple API calls to retrieve all of the results page by page
+and return all results in a data frame.
 
 ``` r
 batman_list <- OMDb_movie(by = "search", value = "Batman")
@@ -667,7 +667,7 @@ bad_title
 
 Because there is no exact match and are too many partial matched
 results, the API call return a failure response (although the HTTR
-request is successful) with an error meesage (from API server) saying
+request is successful) with an error message (from API server) saying
 that there are too many results.
 
 Note: I have to turn the evaluation option off or the rendering function
@@ -721,7 +721,7 @@ batman_list %>%
   )
 ```
 
-![](./images/unnamed-chunk-20-1.png)<!-- -->
+![](./images/unnamed-chunk-27-1.png)<!-- -->
 
 ``` r
 # histogram
@@ -735,9 +735,10 @@ batman_list %>% ggplot(aes(Year_start, fill = Type)) +
   )
 ```
 
-![](./images/unnamed-chunk-20-2.png)<!-- -->
+![](./images/unnamed-chunk-27-2.png)<!-- -->
 
-It will be interesting to look at DC’s another big IP: Superman.
+I think it will be interesting to look at the movies of DC’s another big
+IP: Superman.
 
 ``` r
 superman_list <- OMDb_movie(by = "search", value = "Superman")
@@ -785,15 +786,15 @@ table(superman_list$Type)
     ##   game  movie series 
     ##     11    249     22
 
-To make the comparison easier, we join these two data sets and compare
-them with a two-way contingency table.
+We join these two data sets and compare them in a two-way contingency
+table:
 
 ``` r
-DC_heros <- bind_rows(
+DC_heroes <- bind_rows(
   batman_list %>% mutate(Hero = "Batman"),
   superman_list %>% mutate(Hero = "Superman")
 )
-DC_heros
+DC_heroes
 ```
 
     ## # A tibble: 790 × 8
@@ -813,7 +814,7 @@ DC_heros
 
 ``` r
 # two-way table: heroes by media type
-table(DC_heros$Type, DC_heros$Hero)
+table(DC_heroes$Type, DC_heroes$Hero)
 ```
 
     ##         
@@ -824,7 +825,7 @@ table(DC_heros$Type, DC_heros$Hero)
 
 ``` r
 # faceted scatter plots of counts by year
-DC_heros %>% ggplot(aes(Year_start, color = Hero)) + 
+DC_heroes %>% ggplot(aes(Year_start, color = Hero)) + 
   geom_freqpoly(binwidth = 1) +
   facet_grid(rows = vars(Type), scales = "free") +
   labs(
@@ -835,34 +836,34 @@ DC_heros %>% ggplot(aes(Year_start, color = Hero)) +
   )
 ```
 
-![](./images/unnamed-chunk-23-1.png)<!-- --> From the faceted plot
-above, we can see that Batman have more titles produced in all three
-media types. Among the them TV series show strong periodic patterns than
-the other two media types.
+![](./images/unnamed-chunk-30-1.png)<!-- -->
+
+From the faceted plot above, we can see that Batman have more titles
+produced in all three media types. Among the them TV series show strong
+periodic patterns than the other two media types.
 
 Next, we will only focus on movies and only those with box office
 records. For each movie, we will call the API wrapper function
 `OMDb_movie()` with its IMDb ID to get its information including box
 office records. To reduce the number of API calls, those movies in
-`DC_heros` without poster urls are unlikely to be played in movie
+`DC_heroes` without poster urls are unlikely to be played in movie
 theaters and thus will be excluded in our next API queries.
 
 <font color = red> Note: I have to reduce the number of API calls
-because it so easy to reach the daily limits. I have saved my previous
-work with a full data set (790 of movie inquiries) and its EDA report:
-“project1 v6.Rmd” and “project1 v6.nb.html”.
+because it’s so easy to reach the API query daily limit.
 
-In this version, I limit the number of queries by sampling using
-`slice_sample(pro)` and in hope that the returned data have enough
-Batman and Superman movies that have been played in the theater for my
+In case we need to do a reduced size of study, we canI limit the number
+of queries by sampling some in the `DC_heroes` using
+`slice_sample(prop = 0.3)` and in hope that the returned data will have
+enough Batman and Superman movies with box office records for the later
 EDA.
 
-You are welcome to set `slice_sample(prop = 1)` (or uncomment the line)
-to get full data set for EDA. </font>
+To get full search for EDA, set `slice_sample(prop = 1)` or uncomment
+the line in the following code chunk. </font>
 
 ``` r
 # use API to get movie data for each movies
-df_DC_raw <- DC_heros %>% 
+df_DC_raw <- DC_heroes %>% 
   # only movies with posters
   filter(Type == "movie", Poster != "N/A") %>% 
   #slice_sample(prop = 0.3) %>% 
@@ -874,7 +875,7 @@ df_DC_raw <- DC_heros %>%
 ```
 
 ``` r
-# side-by-side box plots of runtime
+# side-by-side box plots of run time
 df_DC_raw %>% 
   ggplot(aes(Hero, Runtime)) +
   geom_boxplot(na.rm = TRUE) +
@@ -887,18 +888,19 @@ df_DC_raw %>%
   )
 ```
 
-![](./images/unnamed-chunk-25-1.png)<!-- -->
+![](./images/unnamed-chunk-32-1.png)<!-- -->
 
 There are 369 data rows from the query responses. Roughly speaking,
 Superman movies have longer run time. It is noticed that many of them
 are very short and are not rated by [Motion Picture Association
 (MPA)](https://en.wikipedia.org/wiki/Motion_Picture_Association_film_rating_system).
-These short and unrated movies are not likely played in movie theater.
+These short and unrated movies are not likely played in movie theater
+and have box office records.
 
-In order to make the following analysis more sensible, we will only
-consider those with MPA ratings and also remove the repeating rows due
-to flattening of the list column `Ratings`. Two new variables are also
-created:
+In order to make the following analysis more reasonable, I will only
+consider those with MPA ratings and also remove the repeating data rows
+due to flattening of the list column `Ratings`. Two new variables are
+also created:
 
 -   `BO_per_min`: Box office dollars per run time in minutes
 -   `popularity`: Popularity scaled defined as a product of IMDb Rating
@@ -929,7 +931,7 @@ df_DC %>%
   )
 ```
 
-![](./images/unnamed-chunk-26-1.png)<!-- -->
+![](./images/unnamed-chunk-33-1.png)<!-- -->
 
 ``` r
 # 2-way table
@@ -949,7 +951,7 @@ graph, it clearly shows that Superman movies on average have longer run
 time than the Batman movies. In the past decades, there is a trend that
 the movie run time are getting longer in R and PG-13 rated films.
 
-Now let’s tale at look at their box office:
+Now let’s take at look at the box office:
 
 ``` r
 # scatter plot of run time by year
@@ -966,7 +968,7 @@ df_DC %>%
   scale_y_continuous(labels = label_dollar(suffix = " M", scale = 10^-6))
 ```
 
-![](./images/unnamed-chunk-27-1.png)<!-- -->
+![](./images/unnamed-chunk-34-1.png)<!-- -->
 
 Long movies tend to have bigger box office amount! There is a strong
 correlation between `BoxOffice` and `Runtime`. They have a large
@@ -1002,11 +1004,11 @@ amount than the Superman movies.
 
 In addition to `Runtime`, it’s worthy to take a look at how other
 variables like `imdbRating` and `imdbVotes` correlate with the box
-office amount. A scatterplot matrix comes handy to visualize their
+office. A scatterplot matrix comes handy to visualize their
 relationship.
 
 ``` r
-# scaterplot matrix with correlation coefficients
+# scatterplot matrix with correlation coefficients
 df_DC %>% 
   select(Hero, BoxOffice, Runtime, imdbRating, imdbVotes) %>% 
   drop_na() %>% 
@@ -1025,13 +1027,13 @@ df_DC %>%
     ##  plot: [4,2] [====================================================>-------------------------] 68% est: 1s  plot: [4,3] [=======================================================>----------------------] 72% est: 1s  plot: [4,4] [==========================================================>-------------------] 76% est: 0s  plot: [4,5] [=============================================================>----------------] 80% est: 0s  plot: [5,1] [=================================================================>------------] 84% est: 0s `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
     ##  plot: [5,2] [====================================================================>---------] 88% est: 0s  plot: [5,3] [=======================================================================>------] 92% est: 0s  plot: [5,4] [==========================================================================>---] 96% est: 0s  plot: [5,5] [==============================================================================]100% est: 0s                                                                                                           
 
-![](./images/unnamed-chunk-29-1.png)<!-- -->
+![](./images/unnamed-chunk-36-1.png)<!-- -->
 
-The number of votes on IMDb also has a quite strong correlation with the
-box office.
+The number of votes on IMDb also has a strong correlation with the box
+office.
 
 At last, we will plot a scatter plot to show the popularity score we
-defined earlier is a strong indicator on the box office amount.
+defined earlier is a strong indicator on the box office.
 
 ``` r
 # scatter plot to show the correlation between box office and the popularity score
@@ -1048,4 +1050,4 @@ df_DC %>%
   scale_y_continuous(labels = label_dollar(suffix = " M", scale = 10^-6))
 ```
 
-![](./images/unnamed-chunk-30-1.png)<!-- -->
+![](./images/unnamed-chunk-37-1.png)<!-- -->
